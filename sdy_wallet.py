@@ -11,6 +11,7 @@ def get_sold() :
     list_of_wallet_utxo = pickle.loads(pickled_list_of_wallet_utxo)
     wallet.my_utxo = list_of_wallet_utxo
     wallet.get_sold()
+    print(wallet.my_utxo)
     print(wallet.sold)
 
 def send_sdy() :
@@ -40,8 +41,8 @@ if __name__ == '__main__' :
 
     while True :
 
-        # alice address : 17XPowmH6JtNqqpA4FQC73sKcy49boBMvB
-        # bob address : 1EitYA1Pzpumc2UhdR5LDrKPdVNc1KgPeY
+        # alice address : 19HB4ECfCoGsiwzDWpGDVEwBpkg83b2q5v
+        # bob address : 14LRGBn94deQNE4eEG8F2ve7rmyoEATKw4
 
         input_command = str.encode(input(">> "))
         s.send(input_command)

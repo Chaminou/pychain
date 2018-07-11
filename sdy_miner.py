@@ -22,6 +22,7 @@ def send_sdy() :
 
 if __name__ == "__main__" :
 
+
     host = '127.0.1.1'
     port = 5000
 
@@ -31,7 +32,7 @@ if __name__ == "__main__" :
 
     block = Block()
     miner =  Miner(block)
-    first_transaction = Transaction([('None', 0)], [('17XPowmH6JtNqqpA4FQC73sKcy49boBMvB', 100), ('1EitYA1Pzpumc2UhdR5LDrKPdVNc1KgPeY', 100)], 'None')
+    first_transaction = Transaction([('None', None)], [('19HB4ECfCoGsiwzDWpGDVEwBpkg83b2q5v', 100), ('14LRGBn94deQNE4eEG8F2ve7rmyoEATKw4', 100)], 'None')
     block.add_transaction(first_transaction)
 
     while True :
@@ -45,7 +46,7 @@ if __name__ == "__main__" :
                 break
             command = data.decode(encoding='UTF-8')
 
-            miner.available_utxo()
+            #miner.available_utxo()
 
             if command == 'get_sold' :
                 get_sold()

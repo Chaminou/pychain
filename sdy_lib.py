@@ -42,30 +42,37 @@ class Miner :
 
     def available_utxo(self) :
         self.list_of_utxo = []
-        for i in self.block.transaction :
-            for j in i.senders :
-                for k in self.list_of_utxo :
-                    if j[0].__dict__ == k[0].__dict__ and j[1] == k[1] :
-                        self.list_of_utxo.remove(k)
-            for k in range(len(i.recipients)) :
-                self.list_of_utxo.append((i, k))
+        for transaction in self.block.transaction :
+            for i in transaction.senders :
+                if i in self.list_of_utxo :
+                    self.list_of_utxo.remove(i)
+            for j in range(len(transaction.recipients)) :
+                self.list_of_utxo.append((transaction.transaction_hash, j))
+
+    def get_transaction_by_hash(self, hash) :
+        for transaction in self.block.transaction :
+            if hash == transaction.transaction_hash :
+                return transaction
+        return 'transaction not found' # gros bordel en cas d'erreur
 
     def get_utxo_by_address(self, address) :
         list_of_wallet_utxo = []
-        for i in self.list_of_utxo :
-            transaction, index = i
+        for source in self.list_of_utxo :
+            hash, index = source
+            transaction = self.get_transaction_by_hash(hash)
             if transaction.recipients[index][0] == address :
-                list_of_wallet_utxo.append(i)
+                amount = transaction.recipients[index][1]
+                list_of_wallet_utxo.append((source, amount))
         return list_of_wallet_utxo
 
     def create_transaction_hash(self, transaction) :
         senders_str = ''
         for i in transaction.senders :
-            senders_str += i[0].transaction_hash + str(i[1])
+            senders_str += i[0] + str(i[1])
         recipients_str = ''
         for i in transaction.recipients :
             recipients_str += i[0] + str(i[1])
-        transaction_hash = hashlib.sha256(senders_str.encode('utf-8') + recipients_str.encode('utf-8')).hexdigest()
+        transaction_hash = hashlib.sha256(senders_str.encode('utf-8') + recipients_str.encode('utf-8') + transaction.public_key.encode('utf-8')).hexdigest()
         return transaction_hash
 
     def are_senders_authentics(self, transaction) :
@@ -75,8 +82,9 @@ class Miner :
             else :
                 are_authentics = True
             for source in transaction.senders :
-                previous_transaction, index = source
-                if previous_transaction.recipients[index][0] != bitcoin.pubkey_to_address(transaction.public_key) and previous_transaction.recipients[index][1] >= 0 :
+                hash, index = source
+                previous_transaction = self.get_transaction_by_hash(hash)
+                if source not in self.list_of_utxo or previous_transaction.recipients[index][0] != bitcoin.pubkey_to_address(transaction.public_key) or previous_transaction.recipients[index][1] < 0 :
                     are_authentics = False
         except :
             are_authentics = False
@@ -88,7 +96,8 @@ class Miner :
             is_inout_valid = False
             input_amount = 0
             for source in transaction.senders :
-                previous_transaction, index = source
+                hash, index = source
+                previous_transaction = self.get_transaction_by_hash(hash)
                 input_amount += previous_transaction.recipients[index][1]
 
             output_amount = 0
@@ -126,10 +135,10 @@ class Miner :
             return is_valid
 
     def verify_transaction(self, transaction) :
-        #print(self.are_senders_authentics(transaction))
-        #print(self.is_output_lessthan_or_equalto_input(transaction))
-        #print(self.are_recipients_authentics(transaction))
-        #print(self.is_signature_authentic(transaction))
+        #print("authentics sources", self.are_senders_authentics(transaction))
+        #print("output is less than or equal to input", self.is_output_lessthan_or_equalto_input(transaction))
+        #print("authentics recipients", self.are_recipients_authentics(transaction))
+        #print("authentics signature", self.is_signature_authentic(transaction))
         if self.are_senders_authentics(transaction) and self.is_output_lessthan_or_equalto_input(transaction) and self.are_recipients_authentics(transaction) and self.is_signature_authentic(transaction) :
             print("AUTHENTIC")
             return True
@@ -138,11 +147,15 @@ class Miner :
             return False
 
     def verify_temp_transaction_list(self) :
-        for i in self.temp_transaction :
-            if self.verify_transaction(i) :
-                self.block.add_transaction(i)
-            self.temp_transaction.remove(i)
         self.available_utxo()
+        for transaction in self.temp_transaction :
+            #print(transaction)
+            if self.verify_transaction(transaction) :
+                self.block.add_transaction(transaction)
+                for source in transaction.senders :
+                    self.list_of_utxo.remove(source)
+        self.temp_transaction = []
+
 
 class Transaction :
     def __init__(self, senders, recipients, public_key) :
@@ -150,28 +163,23 @@ class Transaction :
         self.recipients = recipients
         self.signature = None
         self.public_key = public_key
-        if self.public_key == 'None' :
-            self.transaction_hash = hashlib.sha256(''.encode('utf-8')).hexdigest()
-        else :
-            self.create_hash()
+        self.create_hash()
 
-
-    def create_hash(self, first_transaction=False) :
+    def create_hash(self) :
         senders_str = ''
         for i in self.senders :
-            senders_str += i[0].transaction_hash + str(i[1])
+            senders_str += i[0] + str(i[1])
         recipients_str = ''
         for i in self.recipients :
             recipients_str += i[0] + str(i[1])
-        self.transaction_hash = hashlib.sha256(senders_str.encode('utf-8') + recipients_str.encode('utf-8')).hexdigest()
-
-
+        self.transaction_hash = hashlib.sha256(senders_str.encode('utf-8') + recipients_str.encode('utf-8') + self.public_key.encode('utf-8')).hexdigest()
 
 class Wallet :
     def __init__(self) :
         self.create_keys()
         self.sold = 0
         self.my_utxo = []
+        self.my_utxo_value = []
 
     def create_keys(self) :
         valid_private_key = False
@@ -209,8 +217,8 @@ class Wallet :
     def get_sold(self) :
         self.sold = 0
         for i in self.my_utxo :
-            transaction, index = i
-            self.sold += transaction.recipients[index][1]
+            (transaction, index), amount = i
+            self.sold += amount
 
     def save_wallet(self, file_name) :
         with open(file_name + '.scsw', 'wb') as tmp_file :
@@ -231,13 +239,14 @@ class Wallet :
             print("vous avez les fonds")
             current_funds = 0
             senders = []
-            for source in self.my_utxo :
-                previous_transaction, index = source
-                current_funds += previous_transaction.recipients[index][1]
+            for utxo in self.my_utxo :
+                source, funds = utxo
+                current_funds += funds
                 senders.append(source)
                 if current_funds >= transaction_amount :
                     break
-            recipients.append((self.address, current_funds-transaction_amount))
+            if current_funds - transaction_amount > 0 :
+                recipients.append((self.address, current_funds - transaction_amount))
             my_transaction = Transaction(senders, recipients, self.hex_encoded_public_key)
             my_transaction.signature = self.sign(my_transaction.transaction_hash)
             return my_transaction
