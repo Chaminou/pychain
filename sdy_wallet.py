@@ -24,7 +24,7 @@ def send_sdy() :
 if __name__ == '__main__' :
 
     host = '127.0.1.1'
-    port = 5000
+    port = 4747
 
     s = socket.socket()
     while True :
@@ -44,11 +44,11 @@ if __name__ == '__main__' :
         # alice address : 19HB4ECfCoGsiwzDWpGDVEwBpkg83b2q5v
         # bob address : 14LRGBn94deQNE4eEG8F2ve7rmyoEATKw4
 
-        input_command = str.encode(input(">> "))
+        input_command = str.encode(input(">>"))
         s.send(input_command)
-        command = input_command.decode(encoding='UTF-8')
+        command = input_command.decode('utf-8')
 
-        time.sleep(0.5)
+        time.sleep(0.1)
         if command == 'get_sold' :
             get_sold()
         elif command == 'send_sdy' :

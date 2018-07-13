@@ -149,7 +149,6 @@ class Miner :
     def verify_temp_transaction_list(self) :
         self.available_utxo()
         for transaction in self.temp_transaction :
-            #print(transaction)
             if self.verify_transaction(transaction) :
                 self.block.add_transaction(transaction)
                 for source in transaction.senders :
