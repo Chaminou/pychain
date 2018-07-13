@@ -37,7 +37,7 @@ if __name__ == '__main__' :
 
     print("Connected to ", host)
 
-    wallet = load_wallet('alice.scsw')
+    wallet = load_wallet('bob.scsw')
 
     while True :
 

@@ -6,6 +6,7 @@ import threading
 from sdy_lib import *
 
 def get_sold(ip, port, socket) :
+    miner.available_utxo()
     pickled_address = socket.recv(1048576)
     address = pickle.loads(pickled_address)
     with lock :
@@ -14,13 +15,15 @@ def get_sold(ip, port, socket) :
     socket.send(pickled_list_of_wallet_utxo)
 
 def send_sdy(ip, port, socket) :
+    miner.available_utxo()
     pickled_transaction = socket.recv(1048576)
     transaction = pickle.loads(pickled_transaction)
     with lock :
         miner.temp_transaction.append(transaction)
-        print(miner.list_of_utxo)
         miner.verify_temp_transaction_list()
-    print(miner.list_of_utxo)
+
+    print(miner.block.transaction)
+
 
 
 class ClientThread(threading.Thread):
@@ -41,8 +44,6 @@ class ClientThread(threading.Thread):
             if not data :
                 break
             data = self.socket.recv(1024)
-            if not data :
-                break
             command = data.decode('utf-8')
 
             if command == 'get_sold' :
@@ -61,7 +62,7 @@ if __name__ == "__main__" :
 
     lock = threading.Lock()
 
-    host = '127.0.1.1'
+    host = '172.18.110.11'
     port = 4747
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -74,6 +75,7 @@ if __name__ == "__main__" :
     miner =  Miner(block)
     first_transaction = Transaction([('None', None)], [('19HB4ECfCoGsiwzDWpGDVEwBpkg83b2q5v', 100), ('14LRGBn94deQNE4eEG8F2ve7rmyoEATKw4', 100)], 'None')
     block.add_transaction(first_transaction)
+    miner.available_utxo()
 
     while True :
         s.listen(4)
