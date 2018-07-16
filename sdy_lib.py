@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import threading
 import bitcoin
 import hashlib
 import random
@@ -39,6 +40,7 @@ class Miner :
         self.list_of_utxo = []
         self.temp_transaction = []
         self.block = block
+        self.list_of_other_miners = []
 
     def available_utxo(self) :
         self.list_of_utxo = []
@@ -154,6 +156,62 @@ class Miner :
                 for source in transaction.senders :
                     self.list_of_utxo.remove(source)
         self.temp_transaction = []
+
+
+class ClientThread(threading.Thread):
+
+    def __init__(self, miner, ip, port, socket):
+        threading.Thread.__init__(self)
+        self.miner = miner
+        self.ip = ip
+        self.port = port
+        self.socket = socket
+        self.lock = threading.Lock()
+        print("[+] New thread started for " + self.ip + ":"+ str(self.port))
+
+    def run(self):
+        print("Connection from : " + self.ip + ":" + str(self.port))
+
+        data = "dummydata"
+
+        while True:
+            if not data :
+                break
+            data = self.socket.recv(1024)
+            command = data.decode('utf-8')
+
+            if command == 'get_sold' :
+                self.get_sold()
+            elif command == 'send_sdy' :
+                self.send_sdy()
+            else :
+                print(command + ' unknown command')
+
+        self.socket.close()
+        print("Client disconnected...")
+
+    def socket_send(self, packet) :
+        pickled_packet = pickle.dumps(packet)
+        self.socket.send(pickled_packet)
+
+    def socket_recv(self, size) :
+        pickled_packet = self.socket.recv(size)
+        packet = pickle.loads(pickled_packet)
+        return packet
+
+    def get_sold(self) :
+        self.miner.available_utxo()
+        address = self.socket_recv(1048576)
+        with self.lock :
+            list_of_wallet_utxo = self.miner.get_utxo_by_address(address)
+        self.socket_send(list_of_wallet_utxo)
+
+    def send_sdy(self) :
+        self.miner.available_utxo()
+        transaction = self.socket_recv(1048576)
+        with self.lock :
+            self.miner.temp_transaction.append(transaction)
+            self.miner.verify_temp_transaction_list()
 
 
 class Transaction :
@@ -280,4 +338,4 @@ def load_wallet(check_wallet=None) :
     return my_wallet
 
 if __name__ == '__main__' :
-    print('sdy lib v2')
+    print('sdy lib')
